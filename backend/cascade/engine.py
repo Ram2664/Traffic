@@ -19,7 +19,7 @@ def run_cascade(
     all_failed = set(initial_failed_nodes)
 
     for depth in range(1, propagation_limit + 1):
-        newly_failed: set = set()
+        newly_failed = set()
         for failed_node in frontier:
             if failed_node not in graph.nodes:
                 continue

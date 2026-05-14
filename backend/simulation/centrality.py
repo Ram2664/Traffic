@@ -12,7 +12,7 @@ def normalize_scores(scores: dict) -> dict:
     min_val = min(scores.values())
     max_val = max(scores.values())
     if max_val == min_val:
-        return {k: 1.0 for k in scores}
+        return {k: 0.5 for k in scores}
     return {k: (v - min_val) / (max_val - min_val) for k, v in scores.items()}
 
 

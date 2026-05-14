@@ -53,7 +53,7 @@ def run_recovery(graph: nx.Graph, strategy: str, steps: int, seed: int) -> dict:
     order = _strategy_order(graph, failed, strategy, seed)
     timeline = []
 
-    for step in range(1, max(steps, 0) + 1):
+    for step in range(1, steps + 1):
         if not order:
             break
         recovered = order.pop(0)

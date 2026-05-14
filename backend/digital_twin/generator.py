@@ -119,7 +119,14 @@ def generate_digital_twin(
         base_graph = ox.graph_from_place(city_name, network_type=network_type, simplify=True)
     elif bbox:
         north, south, east, west = bbox
-        base_graph = ox.graph_from_bbox(north, south, east, west, network_type=network_type, simplify=True)
+        base_graph = ox.graph_from_bbox(
+            north=north,
+            south=south,
+            east=east,
+            west=west,
+            network_type=network_type,
+            simplify=True,
+        )
     else:
         raise ValueError('Either city_name or bbox must be provided.')
 
