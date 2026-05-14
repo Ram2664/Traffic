@@ -51,7 +51,7 @@ def assign_transport_attributes(
     for _, _, attrs in graph.edges(data=True):
         distance = float(attrs.get('length', 1.0))
         road_type = attrs.get('highway', 'unclassified')
-        road_type = road_type[0] if isinstance(road_type, list) and road_type else road_type
+        road_type = road_type[0] if isinstance(road_type, list) and road_type else str(road_type or 'unclassified')
         congestion_level = float(attrs.get('congestion_level', 1.0))
         travel_time = distance / max(speed_mps, 0.1)
         attrs.update(

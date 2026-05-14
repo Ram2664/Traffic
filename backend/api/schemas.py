@@ -6,6 +6,7 @@ from pydantic import BaseModel, Field, model_validator
 
 
 class BoundingBox(BaseModel):
+    # Order intentionally matches OSMnx graph_from_bbox signature.
     north: float
     south: float
     east: float

@@ -5,6 +5,7 @@ Base app module: `backend.main:app`
 ## Endpoints
 
 - `POST /api/load-city` — load city by `city_name` or `bbox`
+  - `bbox` field order: `north`, `south`, `east`, `west` (matches OSMnx API signature)
 - `POST /api/centrality` — compute node centralities and rankings
 - `POST /api/failure` — run random or targeted initial failures
 - `POST /api/cascade` — propagate cascading overload failures

@@ -16,6 +16,9 @@ class CoreLogicTests(unittest.TestCase):
         self.assertIn('closeness', centrality_df.columns)
         self.assertIn('eigenvector', centrality_df.columns)
         self.assertTrue(((centrality_df['degree'] >= 0) & (centrality_df['degree'] <= 1)).all())
+        self.assertTrue(((centrality_df['betweenness'] >= 0) & (centrality_df['betweenness'] <= 1)).all())
+        self.assertTrue(((centrality_df['closeness'] >= 0) & (centrality_df['closeness'] <= 1)).all())
+        self.assertTrue(((centrality_df['eigenvector'] >= 0) & (centrality_df['eigenvector'] <= 1)).all())
 
     def test_cascade_propagates_under_overload(self):
         graph = nx.path_graph(3)
