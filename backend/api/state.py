@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
+from threading import RLock
 
 import networkx as nx
 import pandas as pd
@@ -20,6 +21,7 @@ class SimulationState:
 
 
 SIM_STATE = SimulationState()
+STATE_LOCK = RLock()
 
 
 def ensure_loaded_graph() -> nx.Graph:

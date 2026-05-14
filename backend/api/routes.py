@@ -5,7 +5,7 @@ from datetime import UTC, datetime
 from fastapi import APIRouter, HTTPException
 
 from backend.api.schemas import CascadeRequest, CentralityRequest, FailureRequest, LoadCityRequest, RecoveryRequest
-from backend.api.state import SIM_STATE, artifact_base, ensure_loaded_graph
+from backend.api.state import SIM_STATE, STATE_LOCK, artifact_base, ensure_loaded_graph
 from backend.cascade.engine import run_cascade
 from backend.digital_twin.generator import generate_digital_twin
 from backend.experiments.runner import save_experiment_report
@@ -21,10 +21,17 @@ from backend.utils.settings import get_settings
 from backend.visualization.prep import prepare_visualization_payload
 
 router = APIRouter(prefix='/api', tags=['simulation'])
+logger_name = 'backend.api.routes'
 
 
 def _handle_error(exc: Exception) -> None:
-    raise HTTPException(status_code=400, detail=str(exc)) from exc
+    if isinstance(exc, HTTPException):
+        raise exc
+    if isinstance(exc, ValueError):
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    if isinstance(exc, FileNotFoundError):
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    raise HTTPException(status_code=500, detail=f'Internal server error ({logger_name}).') from exc
 
 
 @router.post('/load-city')
@@ -48,10 +55,11 @@ def load_city(request: LoadCityRequest) -> dict:
             speed_mps=request.speed_mps,
         )
 
-        SIM_STATE.graph = artifacts.graph
-        SIM_STATE.node_df = artifacts.node_df
-        SIM_STATE.edge_df = artifacts.edge_df
-        SIM_STATE.city_name = request.city_name or 'bbox'
+        with STATE_LOCK:
+            SIM_STATE.graph = artifacts.graph
+            SIM_STATE.node_df = artifacts.node_df
+            SIM_STATE.edge_df = artifacts.edge_df
+            SIM_STATE.city_name = request.city_name or 'bbox'
 
         base = artifact_base(settings.results_dir)
         save_graph(artifacts.graph, base / 'graph.gpickle')
@@ -90,9 +98,11 @@ def load_city(request: LoadCityRequest) -> dict:
 def centrality(request: CentralityRequest) -> dict:
     settings = get_settings()
     try:
-        graph = ensure_loaded_graph()
+        with STATE_LOCK:
+            graph = ensure_loaded_graph()
         centrality_df = compute_centrality(graph)
-        SIM_STATE.last_centrality = centrality_df
+        with STATE_LOCK:
+            SIM_STATE.last_centrality = centrality_df
 
         base = artifact_base(settings.results_dir)
         save_dataframe(centrality_df, base / 'centrality.csv')
@@ -111,7 +121,8 @@ def centrality(request: CentralityRequest) -> dict:
 def failure(request: FailureRequest) -> dict:
     settings = get_settings()
     try:
-        graph = ensure_loaded_graph()
+        with STATE_LOCK:
+            graph = ensure_loaded_graph()
         selected = choose_failed_nodes(
             graph=graph,
             strategy=request.strategy,
@@ -127,7 +138,8 @@ def failure(request: FailureRequest) -> dict:
             'strategy': request.strategy,
             'metrics': metrics,
         }
-        SIM_STATE.last_failure = payload
+        with STATE_LOCK:
+            SIM_STATE.last_failure = payload
 
         append_jsonl(settings.results_dir / 'simulation_log.jsonl', {'event': 'failure', **payload})
         save_experiment_report([payload], artifact_base(settings.results_dir) / 'failure_report.csv')
@@ -140,7 +152,8 @@ def failure(request: FailureRequest) -> dict:
 def cascade(request: CascadeRequest) -> dict:
     settings = get_settings()
     try:
-        graph = ensure_loaded_graph()
+        with STATE_LOCK:
+            graph = ensure_loaded_graph()
         initial_failed = [n for n, attrs in graph.nodes(data=True) if attrs.get('status') == 'failed']
         result = run_cascade(
             graph=graph,
@@ -152,7 +165,8 @@ def cascade(request: CascadeRequest) -> dict:
         metrics = compute_resilience_metrics(graph)
         result['metrics'] = metrics
 
-        SIM_STATE.last_cascade = result
+        with STATE_LOCK:
+            SIM_STATE.last_cascade = result
         append_jsonl(settings.results_dir / 'simulation_log.jsonl', {'event': 'cascade', **result})
         save_json(result, artifact_base(settings.results_dir) / 'cascade_report.json')
         return result
@@ -164,14 +178,16 @@ def cascade(request: CascadeRequest) -> dict:
 def recovery(request: RecoveryRequest) -> dict:
     settings = get_settings()
     try:
-        graph = ensure_loaded_graph()
+        with STATE_LOCK:
+            graph = ensure_loaded_graph()
         result = run_recovery(graph, request.strategy, request.steps, request.seed)
         metrics = compute_resilience_metrics(graph)
         score = compute_composite_resilience_index(metrics)
         result['metrics'] = metrics
         result['composite_resilience_index'] = score
 
-        SIM_STATE.last_recovery = result
+        with STATE_LOCK:
+            SIM_STATE.last_recovery = result
         append_jsonl(settings.results_dir / 'simulation_log.jsonl', {'event': 'recovery', **result})
         save_json(result, artifact_base(settings.results_dir) / 'recovery_report.json')
         return result
@@ -182,7 +198,8 @@ def recovery(request: RecoveryRequest) -> dict:
 @router.get('/metrics')
 def metrics() -> dict:
     try:
-        graph = ensure_loaded_graph()
+        with STATE_LOCK:
+            graph = ensure_loaded_graph()
         metric_values = compute_resilience_metrics(graph)
         metric_values['composite_resilience_index'] = compute_composite_resilience_index(metric_values)
         return metric_values
@@ -193,8 +210,9 @@ def metrics() -> dict:
 @router.get('/visualization')
 def visualization() -> dict:
     try:
-        graph = ensure_loaded_graph()
-        timeline = SIM_STATE.last_cascade.get('timeline', []) if SIM_STATE.last_cascade else []
+        with STATE_LOCK:
+            graph = ensure_loaded_graph()
+            timeline = SIM_STATE.last_cascade.get('timeline', []) if SIM_STATE.last_cascade else []
         return prepare_visualization_payload(graph, timeline)
     except Exception as exc:
         _handle_error(exc)
