@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
+from typing import NoReturn
 
 from fastapi import APIRouter, HTTPException
 
@@ -24,7 +25,7 @@ router = APIRouter(prefix='/api', tags=['simulation'])
 logger_name = 'backend.api.routes'
 
 
-def _handle_error(exc: Exception) -> None:
+def _handle_error(exc: Exception) -> NoReturn:
     if isinstance(exc, HTTPException):
         raise exc
     if isinstance(exc, ValueError):
@@ -91,7 +92,7 @@ def load_city(request: LoadCityRequest) -> dict:
             },
         }
     except Exception as exc:
-        _handle_error(exc)
+        return _handle_error(exc)
 
 
 @router.post('/centrality')
@@ -114,7 +115,7 @@ def centrality(request: CentralityRequest) -> dict:
             'report_csv': str(base / 'centrality.csv'),
         }
     except Exception as exc:
-        _handle_error(exc)
+        return _handle_error(exc)
 
 
 @router.post('/failure')
@@ -145,7 +146,7 @@ def failure(request: FailureRequest) -> dict:
         save_experiment_report([payload], artifact_base(settings.results_dir) / 'failure_report.csv')
         return payload
     except Exception as exc:
-        _handle_error(exc)
+        return _handle_error(exc)
 
 
 @router.post('/cascade')
@@ -171,7 +172,7 @@ def cascade(request: CascadeRequest) -> dict:
         save_json(result, artifact_base(settings.results_dir) / 'cascade_report.json')
         return result
     except Exception as exc:
-        _handle_error(exc)
+        return _handle_error(exc)
 
 
 @router.post('/recovery')
@@ -192,7 +193,7 @@ def recovery(request: RecoveryRequest) -> dict:
         save_json(result, artifact_base(settings.results_dir) / 'recovery_report.json')
         return result
     except Exception as exc:
-        _handle_error(exc)
+        return _handle_error(exc)
 
 
 @router.get('/metrics')
@@ -204,7 +205,7 @@ def metrics() -> dict:
         metric_values['composite_resilience_index'] = compute_composite_resilience_index(metric_values)
         return metric_values
     except Exception as exc:
-        _handle_error(exc)
+        return _handle_error(exc)
 
 
 @router.get('/visualization')
@@ -215,4 +216,4 @@ def visualization() -> dict:
             timeline = SIM_STATE.last_cascade.get('timeline', []) if SIM_STATE.last_cascade else []
         return prepare_visualization_payload(graph, timeline)
     except Exception as exc:
-        _handle_error(exc)
+        return _handle_error(exc)
